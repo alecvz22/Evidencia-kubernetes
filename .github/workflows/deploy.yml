@@ -1,0 +1,40 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main  # Se ejecuta cuando haces push a main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout del repo
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2️⃣ Configurar AWS CLI con tus secretos
+      - name: Configure AWS CLI
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }} # Si aplica
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # 3️⃣ Crear ZIP de la app
+      - name: Zip application
+        run: zip -r app.zip .
+
+      # 4️⃣ Subir artefacto a S3
+      - name: Upload to S3
+        run: aws s3 cp app.zip s3://${{ secrets.S3_BUCKET }}/app.zip
+
+      # 5️⃣ Deploy con CodeDeploy
+      - name: Deploy to CodeDeploy
+        run: |
+          aws deploy create-deployment \
+            --application-name ${{ secrets.CODEDEPLOY_APP }} \
+            --deployment-group-name ${{ secrets.CODEDEPLOY_DEPLOYMENT_GROUP }} \
+            --s3-location bucket=${{ secrets.S3_BUCKET }},key=app.zip,bundleType=zip
